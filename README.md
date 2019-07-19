@@ -1,3 +1,44 @@
+## 说明
+从canal项目fork过来，具体架构说明详见：https://github.com/alibaba/canal
+
+主要改动是es适配器这块，用elasticsearch-rest-high-level-client来实现跟es的交互。
+支持xpack的用户名密码
+
+所以配置如下：
+修改启动器配置: application.yml
+```
+server:
+  port: 8081
+logging:
+  level:
+    com.alibaba.otter.canal.client.adapter.es: DEBUG
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+canal.conf:
+  canalServerHost: 127.0.0.1:11111
+  flatMessage: true
+  srcDataSources:
+    defaultDS:
+      url: jdbc:mysql://127.0.0.1:3306/mytest?useUnicode=true
+      username: root
+      password: 121212
+  canalInstances:
+  - instance: example
+    adapterGroups:
+    - outAdapters:
+      - name: es
+        hosts: 127.0.0.1:9200               # es 集群地址, 逗号分隔, 注意这里是9200 http的端口
+        properties:
+          cluster.name: elasticsearch       # es cluster name
+          es.username: elastic              # es username
+          es.password: testandtest          # es password
+```
+
+
 ## 基本说明
 canal 1.1.1版本之后, 增加客户端数据落地的适配及启动功能, 目前支持功能:
 * 客户端启动器
@@ -351,9 +392,11 @@ canal.conf:
     adapterGroups:
     - outAdapters:
       - name: es
-        hosts: 127.0.0.1:9300               # es 集群地址, 逗号分隔
+        hosts: 127.0.0.1:9200               # es 集群地址, 逗号分隔, 注意这里是9200 http的端口
         properties:
           cluster.name: elasticsearch       # es cluster name
+          es.username: elastic              # es username
+          es.password: testandtest          # es password
 ```
 adapter将会自动加载 conf/es 下的所有.yml结尾的配置文件
 ### 5.2 适配器表映射文件
