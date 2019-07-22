@@ -10,7 +10,6 @@ import com.alibaba.otter.canal.client.adapter.support.Util;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
@@ -21,7 +20,6 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.GetMappingsResponse;
-import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -53,9 +51,7 @@ public class ESTemplate {
 
     private static final int    MAX_BATCH_SIZE = 1000;
 
-    private TransportClient     transportClient;
     private RestHighLevelClient restHighLevelClient;
-    private BulkRequestBuilder  bulkRequestBuilder;
     private BulkRequest bulkRequest;
 
     public ESTemplate(RestHighLevelClient restHighLevelClient){
@@ -65,6 +61,10 @@ public class ESTemplate {
 
     public BulkRequest getBulk() {
         return bulkRequest;
+    }
+
+    private void resetBulkRequest() {
+        this.bulkRequest = new BulkRequest();
     }
 
     /**
@@ -201,17 +201,6 @@ public class ESTemplate {
             } catch (Exception e) {
                 logger.error("search and update error: ", e);
             }
-
-//            SearchResponse response = transportClient.prepareSearch(mapping.get_index())
-//                .setTypes(mapping.get_type())
-//                .setQuery(QueryBuilders.termQuery(mapping.getPk(), pkVal))
-//                .setSize(10000)
-//                .get();
-//            for (SearchHit hit : response.getHits()) {
-//                getBulk().add(transportClient.prepareUpdate(mapping.get_index(), mapping.get_type(), hit.getId())
-//                    .setDoc(esFieldData));
-//                commitBulk();
-//            }
         }
 
     }
@@ -223,7 +212,6 @@ public class ESTemplate {
         if (getBulk().numberOfActions() > 0) {
             try {
                 BulkResponse response = restHighLevelClient.bulk(getBulk(), RequestOptions.DEFAULT);
-//            BulkResponse response = getBulk().execute().actionGet();
                 if (response.hasFailures()) {
                     for (BulkItemResponse itemResponse : response.getItems()) {
                         if (!itemResponse.isFailed()) {
@@ -231,12 +219,13 @@ public class ESTemplate {
                         }
 
                         if (itemResponse.getFailure().getStatus() == RestStatus.NOT_FOUND) {
-                            logger.error(itemResponse.getFailureMessage());
+                            logger.error("bulk commit to es error: {}", itemResponse.getFailureMessage());
                         } else {
                             throw new RuntimeException("ES sync commit error" + itemResponse.getFailureMessage());
                         }
                     }
                 }
+                resetBulkRequest();
             } catch (IOException e) {
                 logger.error("ES sync commit error", e);
                 throw new RuntimeException("ES sync commit error");
@@ -263,14 +252,6 @@ public class ESTemplate {
                     updateRequest.routing(parentVal);
                 }
                 getBulk().add(updateRequest);
-//                UpdateRequestBuilder updateRequestBuilder = transportClient
-//                    .prepareUpdate(mapping.get_index(), mapping.get_type(), pkVal.toString())
-//                    .setDoc(esFieldData)
-//                    .setDocAsUpsert(true);
-//                if (StringUtils.isNotEmpty(parentVal)) {
-//                    updateRequestBuilder.setRouting(parentVal);
-//                }
-//                getBulk().add(updateRequestBuilder);
             } else {
                 UpdateRequest updateRequest = new UpdateRequest(
                         mapping.get_index(), mapping.get_type(), pkVal.toString()).doc(esFieldData);
@@ -278,16 +259,8 @@ public class ESTemplate {
                     updateRequest.routing(parentVal);
                 }
                 getBulk().add(updateRequest);
-//                UpdateRequestBuilder updateRequestBuilder = transportClient
-//                    .prepareUpdate(mapping.get_index(), mapping.get_type(), pkVal.toString())
-//                    .setDoc(esFieldData);
-//                if (StringUtils.isNotEmpty(parentVal)) {
-//                    updateRequestBuilder.setRouting(parentVal);
-//                }
-//                getBulk().add(updateRequestBuilder);
             }
         } else {
-
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
             SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(mapping.get_type());
@@ -295,23 +268,13 @@ public class ESTemplate {
             try {
                 SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
                 for (SearchHit hit : response.getHits()) {
-                    bulkRequest.add(
-                            new UpdateRequest(
+                    bulkRequest.add(new UpdateRequest(
                                     mapping.get_index(), mapping.get_type(), hit.getId()).doc(esFieldData)
                     );
                 }
             } catch (Exception e) {
                 logger.error("search and update error: ", e);
             }
-//            SearchResponse response = transportClient.prepareSearch(mapping.get_index())
-//                .setTypes(mapping.get_type())
-//                .setQuery(QueryBuilders.termQuery(mapping.getPk(), pkVal))
-//                .setSize(10000)
-//                .get();
-//            for (SearchHit hit : response.getHits()) {
-//                getBulk().add(transportClient.prepareUpdate(mapping.get_index(), mapping.get_type(), hit.getId())
-//                    .setDoc(esFieldData));
-//            }
         }
     }
 
