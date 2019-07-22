@@ -19,10 +19,8 @@
     <modules>
         <module>common</module>
         <module>logger</module>
-        <module>hbase</module>
         <module>elasticsearch</module>
         <module>launcher</module>
-        <module>rdb</module>
     </modules>
 
     <licenses>
@@ -33,9 +31,9 @@
     </licenses>
 
     <scm>
-        <url>git@github.com:alibaba/canal.git</url>
-        <connection>scm:git:git@github.com:alibaba/canal.git</connection>
-        <developerConnection>scm:git:git@github.com:alibaba/canal.git</developerConnection>
+        <url>git@github.com:bells/canal-client-adapter.git</url>
+        <connection>scm:git:git@github.com:bells/canal-client-adapter.git</connection>
+        <developerConnection>scm:git:git@github.com:bells/canal-client-adapter.git</developerConnection>
     </scm>
 
     <repositories>
