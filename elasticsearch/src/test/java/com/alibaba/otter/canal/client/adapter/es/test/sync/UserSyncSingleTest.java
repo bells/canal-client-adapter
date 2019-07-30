@@ -1,19 +1,17 @@
 package com.alibaba.otter.canal.client.adapter.es.test.sync;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.alibaba.otter.canal.client.adapter.es.ESAdapter;
+import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
+import com.alibaba.otter.canal.client.adapter.support.Dml;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.alibaba.otter.canal.client.adapter.es.ESAdapter;
-import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
-import com.alibaba.otter.canal.client.adapter.support.Dml;
+import java.io.IOException;
+import java.util.*;
 
 public class UserSyncSingleTest {
 
@@ -29,7 +27,7 @@ public class UserSyncSingleTest {
      * 单表插入
      */
     @Test
-    public void test01() {
+    public void test01() throws IOException {
         Dml dml = new Dml();
         dml.setDestination("example");
         dml.setTs(new Date().getTime());
@@ -51,7 +49,8 @@ public class UserSyncSingleTest {
 
         esAdapter.getEsSyncService().sync(esSyncConfigs.values(), dml);
 
-        GetResponse response = esAdapter.getTransportClient().prepareGet("mytest_user", "_doc", "1").get();
+        GetRequest getRequest = new GetRequest("mytest_user", "_doc", "1");
+        GetResponse response = esAdapter.getRestHighLevelClient().get(getRequest, RequestOptions.DEFAULT);
         Assert.assertEquals("Eric", response.getSource().get("_name"));
     }
 
@@ -59,7 +58,7 @@ public class UserSyncSingleTest {
      * 单表更新
      */
     @Test
-    public void test02() {
+    public void test02() throws IOException {
         Dml dml = new Dml();
         dml.setDestination("example");
         dml.setTs(new Date().getTime());
@@ -84,7 +83,8 @@ public class UserSyncSingleTest {
 
         esAdapter.getEsSyncService().sync(esSyncConfigs.values(), dml);
 
-        GetResponse response = esAdapter.getTransportClient().prepareGet("mytest_user", "_doc", "1").get();
+        GetRequest getRequest = new GetRequest("mytest_user", "_doc", "1");
+        GetResponse response = esAdapter.getRestHighLevelClient().get(getRequest, RequestOptions.DEFAULT);
         Assert.assertEquals("Eric2", response.getSource().get("_name"));
     }
 
@@ -92,7 +92,7 @@ public class UserSyncSingleTest {
      * 单表删除
      */
     @Test
-    public void test03() {
+    public void test03() throws IOException {
         Dml dml = new Dml();
         dml.setDestination("example");
         dml.setTs(new Date().getTime());
@@ -114,7 +114,8 @@ public class UserSyncSingleTest {
 
         esAdapter.getEsSyncService().sync(esSyncConfigs.values(), dml);
 
-        GetResponse response = esAdapter.getTransportClient().prepareGet("mytest_user", "_doc", "1").get();
+        GetRequest getRequest = new GetRequest("mytest_user", "_doc", "1");
+        GetResponse response = esAdapter.getRestHighLevelClient().get(getRequest, RequestOptions.DEFAULT);
         Assert.assertNull(response.getSource());
     }
 

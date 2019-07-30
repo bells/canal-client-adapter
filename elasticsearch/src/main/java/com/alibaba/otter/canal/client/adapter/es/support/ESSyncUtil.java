@@ -1,29 +1,26 @@
 package com.alibaba.otter.canal.client.adapter.es.support;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.sql.Blob;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.codec.binary.Base64;
-import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.alibaba.fastjson.JSON;
 import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig.ESMapping;
 import com.alibaba.otter.canal.client.adapter.es.config.SchemaItem;
 import com.alibaba.otter.canal.client.adapter.es.config.SchemaItem.ColumnItem;
 import com.alibaba.otter.canal.client.adapter.es.config.SchemaItem.TableItem;
 import com.alibaba.otter.canal.client.adapter.support.Util;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang.StringUtils;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.sql.Blob;
+import java.sql.SQLException;
+import java.util.*;
 
 /**
  * ES 同步工具同类
@@ -301,6 +298,28 @@ public class ESSyncUtil {
             sql.append(owner).append(".").append(columnName).append("='").append(value).append("'  AND ");
         } else {
             sql.append(owner).append(".").append(columnName).append("=").append(value).append("  AND ");
+        }
+    }
+
+    public static void buildRequest(
+            BulkRequest bulkRequest, ESMapping mapping, Map<String, Object> esFieldData, Object idVal) {
+        String parentVal = (String) esFieldData.remove("$parent_routing");
+        if (mapping.isUpsert()) {
+            UpdateRequest updateRequest = new UpdateRequest(
+                    mapping.get_index(), mapping.get_type(), idVal.toString()
+            ).doc(esFieldData).docAsUpsert(true);
+            if (StringUtils.isNotEmpty(parentVal)) {
+                updateRequest.routing(parentVal);
+            }
+            bulkRequest.add(updateRequest);
+        } else {
+            IndexRequest indexRequest = new IndexRequest(
+                    mapping.get_index(), mapping.get_type(), idVal.toString()
+            ).source(esFieldData);
+            if (StringUtils.isNotEmpty(parentVal)) {
+                indexRequest.routing(parentVal);
+            }
+            bulkRequest.add(indexRequest);
         }
     }
 }

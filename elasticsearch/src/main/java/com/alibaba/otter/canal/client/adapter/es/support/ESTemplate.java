@@ -12,7 +12,6 @@ import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -76,29 +75,13 @@ public class ESTemplate {
      */
     public void insert(ESMapping mapping, Object pkVal, Map<String, Object> esFieldData) {
         if (mapping.get_id() != null) {
-            String parentVal = (String) esFieldData.remove("$parent_routing");
-
-            if (mapping.isUpsert()) {
-                UpdateRequest updateRequest = new UpdateRequest(
-                        mapping.get_index(), mapping.get_type(), pkVal.toString()).doc(esFieldData).docAsUpsert(true);
-                if (StringUtils.isNotEmpty(parentVal)) {
-                    updateRequest.routing(parentVal);
-                }
-                bulkRequest.add(updateRequest);
-            } else {
-                IndexRequest indexRequest = new IndexRequest(
-                        mapping.get_index(), mapping.get_type(), pkVal.toString()).source(esFieldData);
-                if (StringUtils.isNotEmpty(parentVal)) {
-                    indexRequest.routing(parentVal);
-                }
-                bulkRequest.add(indexRequest);
-            }
+            ESSyncUtil.buildRequest(bulkRequest, mapping, esFieldData, pkVal);
             commitBulk();
         } else {
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-            searchSourceBuilder.query(QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
-            SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(mapping.get_type());
-            searchRequest.source(searchSourceBuilder);
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder()
+                    .query(QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
+            SearchRequest searchRequest = new SearchRequest(
+                    mapping.get_index()).types(mapping.get_type()).source(searchSourceBuilder);
 
             try {
                 SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
@@ -180,10 +163,8 @@ public class ESTemplate {
     public void delete(ESMapping mapping, Object pkVal, Map<String, Object> esFieldData) {
         if (mapping.get_id() != null) {
             bulkRequest.add(new DeleteRequest(mapping.get_index(), mapping.get_type(), pkVal.toString()));
-            // getBulk().add(transportClient.prepareDelete(mapping.get_index(), mapping.get_type(), pkVal.toString()));
             commitBulk();
         } else {
-
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             searchSourceBuilder.query(QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
             SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(mapping.get_type());
@@ -193,8 +174,7 @@ public class ESTemplate {
                 SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
                 for (SearchHit hit : response.getHits()) {
                     bulkRequest.add(
-                            new UpdateRequest(
-                                    mapping.get_index(), mapping.get_type(), hit.getId()).doc(esFieldData)
+                            new UpdateRequest(mapping.get_index(), mapping.get_type(), hit.getId()).doc(esFieldData)
                     );
                     commitBulk();
                 }
@@ -261,10 +241,10 @@ public class ESTemplate {
                 getBulk().add(updateRequest);
             }
         } else {
-            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-            searchSourceBuilder.query(QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
-            SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(mapping.get_type());
-            searchRequest.source(searchSourceBuilder);
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(
+                    QueryBuilders.termQuery(mapping.getPk(), pkVal)).size(10000);
+            SearchRequest searchRequest = new SearchRequest(
+                    mapping.get_index()).types(mapping.get_type()).source(searchSourceBuilder);
             try {
                 SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
                 for (SearchHit hit : response.getHits()) {

@@ -1,22 +1,19 @@
 package com.alibaba.otter.canal.client.adapter.es.test.sync;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.sql.DataSource;
-
-import org.elasticsearch.action.get.GetResponse;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 import com.alibaba.otter.canal.client.adapter.es.ESAdapter;
 import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
 import com.alibaba.otter.canal.client.adapter.support.DatasourceConfig;
 import com.alibaba.otter.canal.client.adapter.support.Dml;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
+import javax.sql.DataSource;
+import java.io.IOException;
+import java.util.*;
 
 public class UserSyncJoinOneTest {
 
@@ -32,7 +29,7 @@ public class UserSyncJoinOneTest {
      * 主表带函数插入
      */
     @Test
-    public void test01() {
+    public void test01() throws IOException {
         DataSource ds = DatasourceConfig.DATA_SOURCES.get("defaultDS");
         Common.sqlExe(ds, "delete from user where id=1");
         Common.sqlExe(ds, "insert into user (id,name,role_id) values (1,'Eric',1)");
@@ -58,7 +55,8 @@ public class UserSyncJoinOneTest {
 
         esAdapter.getEsSyncService().sync(esSyncConfigs.values(), dml);
 
-        GetResponse response = esAdapter.getTransportClient().prepareGet("mytest_user", "_doc", "1").get();
+        GetRequest getRequest = new GetRequest("mytest_user", "_doc", "1");
+        GetResponse response = esAdapter.getRestHighLevelClient().get(getRequest, RequestOptions.DEFAULT);
         Assert.assertEquals("Eric_", response.getSource().get("_name"));
     }
 
@@ -66,7 +64,7 @@ public class UserSyncJoinOneTest {
      * 主表带函数更新
      */
     @Test
-    public void test02() {
+    public void test02() throws IOException {
         DataSource ds = DatasourceConfig.DATA_SOURCES.get("defaultDS");
         Common.sqlExe(ds, "update user set name='Eric2' where id=1");
 
@@ -94,7 +92,8 @@ public class UserSyncJoinOneTest {
 
         esAdapter.getEsSyncService().sync(esSyncConfigs.values(), dml);
 
-        GetResponse response = esAdapter.getTransportClient().prepareGet("mytest_user", "_doc", "1").get();
+        GetRequest getRequest = new GetRequest("mytest_user", "_doc", "1");
+        GetResponse response = esAdapter.getRestHighLevelClient().get(getRequest, RequestOptions.DEFAULT);
         Assert.assertEquals("Eric2_", response.getSource().get("_name"));
     }
 }

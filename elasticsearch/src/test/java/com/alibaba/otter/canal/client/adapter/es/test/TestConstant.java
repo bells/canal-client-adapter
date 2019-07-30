@@ -1,16 +1,16 @@
 package com.alibaba.otter.canal.client.adapter.es.test;
 
-import java.sql.SQLException;
-
 import com.alibaba.druid.pool.DruidDataSource;
+
+import java.sql.SQLException;
 
 public class TestConstant {
 
     public final static String    jdbcUrl      = "jdbc:mysql://127.0.0.1:3306/mytest?useUnicode=true";
     public final static String    jdbcUser     = "root";
-    public final static String    jdbcPassword = "121212";
+    public final static String    jdbcPassword = "zhubinhua";
 
-    public final static String    esHosts      = "127.0.0.1:9300";
+    public final static String    esHosts      = "127.0.0.1:9200";
     public final static String    clusterName  = "elasticsearch";
 
     public final static DruidDataSource dataSource;

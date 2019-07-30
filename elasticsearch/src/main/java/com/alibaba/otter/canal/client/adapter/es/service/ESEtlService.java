@@ -4,6 +4,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
 import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig.ESMapping;
 import com.alibaba.otter.canal.client.adapter.es.config.SchemaItem.FieldItem;
+import com.alibaba.otter.canal.client.adapter.es.support.ESSyncUtil;
 import com.alibaba.otter.canal.client.adapter.es.support.ESTemplate;
 import com.alibaba.otter.canal.client.adapter.support.DatasourceConfig;
 import com.alibaba.otter.canal.client.adapter.support.EtlResult;
@@ -13,7 +14,6 @@ import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -57,18 +57,17 @@ public class ESEtlService {
 
     public EtlResult importData(List<String> params) {
         EtlResult etlResult = new EtlResult();
-        AtomicLong impCount = new AtomicLong();
-        List<String> errMsg = new ArrayList<>();
-        String esIndex = "";
         if (config == null) {
             logger.warn("esSycnCofnig is null, etl go end !");
             etlResult.setErrorMessage("esSycnCofnig is null, etl go end !");
             return etlResult;
         }
 
+        AtomicLong impCount = new AtomicLong();
+        List<String> errMsg = new ArrayList<>();
         ESMapping mapping = config.getEsMapping();
 
-        esIndex = mapping.get_index();
+        String esIndex = mapping.get_index();
         DruidDataSource dataSource = DatasourceConfig.DATA_SOURCES.get(config.getDataSourceKey());
         Pattern pattern = Pattern.compile(".*:(.*)://.*/(.*)\\?.*$");
         Matcher matcher = pattern.matcher(dataSource.getUrl());
@@ -168,8 +167,8 @@ public class ESEtlService {
         }
     }
 
-    private boolean executeSqlImport(DataSource ds, String sql, ESMapping mapping, AtomicLong impCount,
-                                     List<String> errMsg) {
+    private boolean executeSqlImport(
+            DataSource ds, String sql, ESMapping mapping, AtomicLong impCount, List<String> errMsg) {
         try {
             Util.sqlRS(ds, sql, rs -> {
                 int count = 0;
@@ -225,44 +224,25 @@ public class ESEtlService {
                         }
 
                         if (idVal != null) {
-                            String parentVal = (String) esFieldData.remove("$parent_routing");
-                            if (mapping.isUpsert()) {
-                                UpdateRequest updateRequest = new UpdateRequest(
-                                        mapping.get_index(), mapping.get_type(), idVal.toString()).doc(esFieldData)
-                                        .docAsUpsert(true);
-                                if (StringUtils.isNotEmpty(parentVal)) {
-                                    updateRequest.routing(parentVal);
-                                }
-                                bulkRequest.add(updateRequest);
-                            } else {
-                                IndexRequest indexRequest = new IndexRequest(
-                                        mapping.get_index(), mapping.get_type(), idVal.toString()).source(esFieldData);
-                                if (StringUtils.isNotEmpty(parentVal)) {
-                                    indexRequest.routing(parentVal);
-                                }
-                                bulkRequest.add(indexRequest);
-                            }
+                            ESSyncUtil.buildRequest(bulkRequest, mapping, esFieldData, idVal);
                         } else {
                             idVal = esFieldData.get(mapping.getPk());
-
-                            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-                            searchSourceBuilder.query(QueryBuilders.termQuery(mapping.getPk(), idVal)).size(10000);
-                            SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(mapping
-                                    .get_type());
-                            searchRequest.source(searchSourceBuilder);
-
+                            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder().query(
+                                    QueryBuilders.termQuery(mapping.getPk(), idVal)).size(10000);
+                            SearchRequest searchRequest = new SearchRequest(mapping.get_index()).types(
+                                    mapping.get_type()).source(searchSourceBuilder);
                             try {
-                                SearchResponse response = restHighLevelClient.search(searchRequest, RequestOptions
-                                        .DEFAULT);
-
+                                SearchResponse response = restHighLevelClient.search(
+                                        searchRequest, RequestOptions.DEFAULT);
                                 for (SearchHit hit : response.getHits()) {
                                     bulkRequest.add(
                                             new UpdateRequest(
-                                                    mapping.get_index(), mapping.get_type(), hit.getId()).doc(esFieldData)
+                                                    mapping.get_index(), mapping.get_type(), hit.getId()
+                                            ).doc(esFieldData)
                                     );
                                 }
                             } catch (Exception e) {
-                                logger.error("search and update error: ", e);
+                                logger.error("etl search and update error: ", e);
                             }
                         }
 
@@ -270,7 +250,6 @@ public class ESEtlService {
                             && bulkRequest.numberOfActions() > 0) {
                             long esBatchBegin = System.currentTimeMillis();
                             BulkResponse rp = restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-                            // BulkResponse rp = bulkRequestBuilder.execute().actionGet();
                             if (rp.hasFailures()) {
                                 this.processFailBulkResponse(rp);
                             }

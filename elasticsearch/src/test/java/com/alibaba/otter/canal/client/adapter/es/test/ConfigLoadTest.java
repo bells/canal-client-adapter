@@ -1,14 +1,13 @@
 package com.alibaba.otter.canal.client.adapter.es.test;
 
-import java.util.Map;
-
+import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
+import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfigLoader;
+import com.alibaba.otter.canal.client.adapter.support.DatasourceConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfig;
-import com.alibaba.otter.canal.client.adapter.es.config.ESSyncConfigLoader;
-import com.alibaba.otter.canal.client.adapter.support.DatasourceConfig;
+import java.util.Map;
 
 public class ConfigLoadTest {
 
@@ -29,7 +28,7 @@ public class ConfigLoadTest {
         ESSyncConfig.ESMapping esMapping = config.getEsMapping();
         Assert.assertEquals("mytest_user", esMapping.get_index());
         Assert.assertEquals("_doc", esMapping.get_type());
-        Assert.assertEquals("id", esMapping.get_id());
+        Assert.assertEquals("_id", esMapping.get_id());
         Assert.assertNotNull(esMapping.getSql());
 
         // Map<String, List<ESSyncConfig>> dbTableEsSyncConfig =

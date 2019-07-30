@@ -59,7 +59,7 @@ public class ESAdapter implements OuterAdapter {
 
     private Properties                             envProperties;
 
-    public RestHighLevelClient getTransportClient() {
+    public RestHighLevelClient getRestHighLevelClient() {
         return restHighLevelClient;
     }
 
@@ -131,8 +131,8 @@ public class ESAdapter implements OuterAdapter {
             properties.forEach(settingBuilder::put);
 
 
-            String esUsername = properties.get("es.username");
-            String esPassword = properties.get("es.password");
+            String esUsername = properties.get("es.username") != null ? properties.get("es.username") : "";
+            String esPassword = properties.get("es.password") != null ? properties.get("es.password") : "";
             final CredentialsProvider credentialsProvider =
                     new BasicCredentialsProvider();
             credentialsProvider.setCredentials(AuthScope.ANY,
